@@ -14,6 +14,7 @@ find_package(VTK COMPONENTS
   vtkRenderingFreeType
   vtkRenderingGL2PSOpenGL2
   vtkRenderingOpenGL2
+  vtkRenderingLabel
   QUIET
 )
 

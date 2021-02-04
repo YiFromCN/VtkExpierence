@@ -27,6 +27,13 @@
 #include <vtkNamedColors.h>
 #include <vtkColorTransferFunction.h>
 
+#include <vtkLabelPlacementMapper.h>
+#include "vtkLabeledDataMapper.h"
+#include "vtkIdFilter.h"
+#include "vtkStringArray.h"
+#include "vtkPointSetToLabelHierarchy.h"
+#include "vtkActor2D.h"
+
 #define vSP vtkSmartPointer
 #define vSPNew(Var, Type) vSP<Type> Var = vSP<Type>::New();
 #include <iostream>
@@ -59,19 +66,31 @@ int main(int, char* argv[])
 
   vSPNew(scalars, vtkIntArray);
   scalars->SetNumberOfTuples(ptsCount);
+  vSPNew(controlPoints, vtkPoints);
+  //cout << "****-----*****" << std::endl;
+  vSPNew(labels, vtkStringArray);
+  labels->SetName("labels");
+  auto labelPoly = vSP<vtkPolyData>::New();
 
   for (int i = 0; i < ptsCount; ++i)
   {
       scalars->SetTuple1(i, i);
-      i ++;
+      if (i % 50 == 1)
+      {
+          controlPoints->InsertNextPoint(reader->GetOutput()->GetPoint(i));
+
+          char string[6];
+          itoa(i, string, 10);
+          labels->InsertNextValue(string);
+      }
   }
   reader->GetOutput()->GetPointData()->SetScalars(scalars);
 
   vSPNew(lut, vtkColorTransferFunction);
   lut->SetClamping(0);
   vSPNew(colors, vtkNamedColors);
-  std::cout << "2222" << std::endl;
-  std::string colorNames[8] = { "Gray", "Black", "Red", "Maroon", "Yellow", "Lime", "Green", "Blue" };
+
+  std::string colorNames[8] = { "Orange", "Black", "Red", "Maroon", "Yellow", "Lime", "Green", "Blue" };
   for (int i = 0; i < ptsCount; )
   {
       double color[3];
@@ -79,7 +98,14 @@ int main(int, char* argv[])
       lut->AddRGBPoint(i, color[0], color[1], color[2]);
       i ++;
   }
-  std::cout << "2222Over" << std::endl;
+  labelPoly->GetPointData()->AddArray(labels);
+  labelPoly->SetPoints(controlPoints);
+  vSPNew(hie, vtkPointSetToLabelHierarchy);
+  hie->SetInputData(labelPoly);
+  hie->SetMaximumDepth(15);
+  hie->SetLabelArrayName("labels");
+  hie->SetTargetLabelCount(100);
+
   mapper->SetScalarModeToUsePointData();
   mapper->SetLookupTable(lut);
   mapper->SetScalarRange(0, ptsCount);
@@ -93,8 +119,17 @@ int main(int, char* argv[])
    // actor->GetProperty()->SetSpecular(0.0);
     //actor->GetProperty()->SetDiffuse(0.5);
     //actor->GetProperty()->SetAmbient(0.3);
+
+    auto labelMapper = vSP<vtkLabelPlacementMapper >::New();
+    labelMapper->SetInputConnection(hie->GetOutputPort());
+
+    //labelMapper->SetFieldDataName("labels");
+    auto labelActor = vSP<vtkActor2D>::New();
+    labelActor->SetMapper(labelMapper);
+
     actor->SetPosition(-0.1, 0.0, -0.1);
     renderer->AddActor(actor);
+    renderer->AddActor(labelActor);
   }
 
 
